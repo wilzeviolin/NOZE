@@ -1,50 +1,52 @@
-import streamlit as st
 import pickle
+from flask import Flask, request, jsonify
 import numpy as np
 
 # Load the trained model
-@st.cache_resource
-def load_model():
-    with open('seed_type_classification.pkl', 'rb') as f:
-        return pickle.load(f)
+model = pickle.load(open("seed_type_classification.pkl", "rb"))
 
-model = load_model()
+# Initialize Flask app
+app = Flask(__name__)
 
-# Streamlit UI
-st.title("Wheat Kernel Type Classifier")
-st.write("Enter kernel attributes to predict the wheat type (Kama, Rosa, Canadian)")
+# Define a route for prediction
+@app.route('/predict', methods=['POST'])
+def predict():
+    # Get input features from the request
+    data = request.get_json(force=True)
+    
+    # Extract the features
+    area = data['Area']
+    perimeter = data['Perimeter']
+    compactness = data['Compactness']
+    length = data['Length']
+    width = data['Width']
+    asymmetry_coeff = data['AsymmetryCoeff']
+    groove = data['Groove']
+    
+    # Ensure the input features are within valid ranges
+    if not (0 <= area <= 21.18):
+        return jsonify({"error": "Area must be between 0 and 21.18"})
+    if not (0 <= perimeter <= 17.25):
+        return jsonify({"error": "Perimeter must be between 0 and 17.25"})
+    if not (0 <= compactness <= 0.9183):
+        return jsonify({"error": "Compactness must be between 0 and 0.9183"})
+    if not (0 <= length <= 6.675):
+        return jsonify({"error": "Length must be between 0 and 6.675"})
+    if not (0 <= width <= 4.033):
+        return jsonify({"error": "Width must be between 0 and 4.033"})
+    if not (0 <= asymmetry_coeff <= 8.315):
+        return jsonify({"error": "AsymmetryCoeff must be between 0 and 8.315"})
+    if not (0 <= groove <= 6.55):
+        return jsonify({"error": "Groove must be between 0 and 6.55"})
+    
+    # Prepare the input features as a numpy array for prediction
+    features = np.array([[area, perimeter, compactness, length, width, asymmetry_coeff, groove]])
+    
+    # Make the prediction
+    prediction = model.predict(features)
+    
+    # Return the prediction as a response
+    return jsonify({"predicted_wheat_type": int(prediction[0])})
 
-# Input fields
-area = st.number_input("Area", min_value=0.0, max_value=21.18, value=10.0)
-perimeter = st.number_input("Perimeter", min_value=0.0, max_value=17.25, value=10.0)
-compactness = st.number_input("Compactness", min_value=0.0, max_value=0.9183, value=0.5)
-length = st.number_input("Length", min_value=0.0, max_value=6.675, value=3.0)
-width = st.number_input("Width", min_value=0.0, max_value=4.033, value=2.0)
-asymmetry_coeff = st.number_input("Asymmetry Coefficient", min_value=0.0, max_value=8.315, value=4.0)
-groove = st.number_input("Groove", min_value=0.0, max_value=6.55, value=3.0)
-length_width_ratio = length / width if width != 0 else 0.0
-
-# Predict button
-if st.button("Predict Wheat Type"):
-    # Prepare input for model
-    features = np.array([[area, perimeter, compactness, length, width, asymmetry_coeff, groove, length_width_ratio]])
-
-    # Perform prediction
-    prediction = model.predict(features)[0]
-
-    # Map numeric prediction to class name
-    wheat_types = {1: 'Kama', 2: 'Rosa', 3: 'Canadian'}
-    predicted_type = wheat_types.get(prediction, 'Unknown')
-
-    st.success(f"Predicted Wheat Type: {predicted_type}")
-
-st.write("Max values for each feature:")
-st.json({
-    "Area": 21.18,
-    "Perimeter": 17.25,
-    "Compactness": 0.9183,
-    "Length": 6.675,
-    "Width": 4.033,
-    "Asymmetry Coefficient": 8.315,
-    "Groove": 6.55
-})
+if __name__ == "__main__":
+    app.run(debug=True)
