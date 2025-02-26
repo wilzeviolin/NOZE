@@ -1,8 +1,4 @@
-python==3.10
+flask
+numpy
+scikit-learn
 
-pycaret==2.3.4
-streamlit==1.21.0
-pandas==1.5.3
-scikit-learn==1.2.1
-matplotlib==3.6.3
-numpy==1.23.5
