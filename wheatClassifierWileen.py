@@ -1,12 +1,21 @@
 import pickle
+import boto3
 from flask import Flask, request, jsonify
 import numpy as np
 
-# Load the trained model
-model = pickle.load(open("seed_type_classification.pkl", "rb"))
-
 # Initialize Flask app
 app = Flask(__name__)
+
+# Function to download model from S3
+def load_model_from_s3():
+    s3 = boto3.client('s3')
+    bucket_name = "your-s3-bucket-name"
+    model_key = "path/to/seed_type_classification.pkl"
+    obj = s3.get_object(Bucket=bucket_name, Key=model_key)
+    return pickle.loads(obj['Body'].read())
+
+# Load the trained model from S3
+model = load_model_from_s3()
 
 # Define a route for prediction
 @app.route('/predict', methods=['POST'])
@@ -48,4 +57,4 @@ def predict():
     # Return the prediction as a response
     return jsonify({"predicted_wheat_type": int(prediction[0])})
 
-
+# No need for app.run(debug=True) when deploying to Vercel
