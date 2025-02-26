@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "wheatCLassifierWileen.py",
+      "src": "wheatClassifierWileen.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/predict",
-      "dest": "/wheatCLassifierWileen.py"
+      "dest": "/wheatClassifierWileen.py"
     }
   ]
 }
