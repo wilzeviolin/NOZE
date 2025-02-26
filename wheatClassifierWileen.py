@@ -1,21 +1,20 @@
 import pickle
-import boto3
+import requests
 from flask import Flask, request, jsonify
 import numpy as np
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Function to download model from S3
-def load_model_from_s3():
-    s3 = boto3.client('s3')
-    bucket_name = "your-s3-bucket-name"
-    model_key = "path/to/seed_type_classification.pkl"
-    obj = s3.get_object(Bucket=bucket_name, Key=model_key)
-    return pickle.loads(obj['Body'].read())
+# Function to download model from GitHub
+def load_model_from_github():
+    url = "https://github.com/wilzeviolin/NOZE/seed_type_classification.pkl"
+    response = requests.get(url)
+    response.raise_for_status()  # Will raise an exception for 4xx/5xx status codes
+    return pickle.loads(response.content)
 
-# Load the trained model from S3
-model = load_model_from_s3()
+# Load the trained model from GitHub
+model = load_model_from_github()
 
 # Define a route for prediction
 @app.route('/predict', methods=['POST'])
