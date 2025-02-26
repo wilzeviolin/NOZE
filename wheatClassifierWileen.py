@@ -48,5 +48,4 @@ def predict():
     # Return the prediction as a response
     return jsonify({"predicted_wheat_type": int(prediction[0])})
 
-if __name__ == "__main__":
-    app.run(debug=True)
+
