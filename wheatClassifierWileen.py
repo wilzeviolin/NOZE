@@ -54,7 +54,7 @@ st.markdown('<h1 class="main-header">🌾 Wheat Kernel Classification</h1>', uns
 @st.cache_resource
 def load_model():
     try:
-        with open('seed_pipeline.pkl', 'rb') as file:
+        with open('seed_type_classification.pkl', 'rb') as file:
             model = pickle.load(file)
         return model
     except Exception as e:
