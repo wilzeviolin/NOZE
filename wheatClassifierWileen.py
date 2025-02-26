@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import sys
+import subprocess
 import io
 
 # Set page configuration
@@ -10,6 +12,31 @@ st.set_page_config(
     page_icon="🌾",
     layout="wide"
 )
+
+# Install missing packages if needed
+def install_missing_packages():
+    required_packages = ["pycaret"]
+    
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            st.warning(f"Installing required package: {package}...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            st.success(f"Successfully installed {package}!")
+            # Restart the runtime
+            st.info("Please restart the app after installation is complete.")
+            st.stop()
+
+# Check for missing packages
+try:
+    install_missing_packages()
+    # Only import pycaret after ensuring it's installed
+    from pycaret.classification import load_model, predict_model
+except Exception as e:
+    st.error(f"Error setting up environment: {e}")
+    st.info("Please install pycaret manually with: pip install pycaret")
+    st.stop()
 
 # Custom CSS to style the app
 st.markdown("""
@@ -52,16 +79,21 @@ st.markdown('<h1 class="main-header">🌾 Wheat Kernel Classification</h1>', uns
 
 # Load the model
 @st.cache_resource
-def load_model():
+def load_classification_model():
     try:
-        with open('seed_type_classification.pkl', 'rb') as file:
-            model = pickle.load(file)
+        # Try to load using pickle first
+        try:
+            with open('seed_pipeline.pkl', 'rb') as file:
+                model = pickle.load(file)
+        except:
+            # If pickle fails, try with pycaret's load_model
+            model = load_model('seed_type_classification')
         return model
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return None
 
-model = load_model()
+model = load_classification_model()
 
 # Sidebar for navigation
 with st.sidebar:
@@ -118,6 +150,35 @@ feature_ranges = {
     "groove_length": (4.0, 7.0, 5.5, 0.05)
 }
 
+# Make prediction using PyCaret
+def make_prediction(model, input_data):
+    try:
+        # If model is from pycaret
+        try:
+            predictions = predict_model(model, data=input_data)
+            # Get the prediction (usually in a column named 'prediction_label')
+            if 'prediction_label' in predictions.columns:
+                pred_value = predictions['prediction_label'].iloc[0]
+                # Get probabilities if available
+                prob_columns = [col for col in predictions.columns if col.startswith('prediction_score')]
+                probabilities = [predictions[col].iloc[0] for col in prob_columns] if prob_columns else [1.0, 0.0, 0.0]
+            else:
+                # If prediction_label is not there, try to determine which column has predictions
+                # This is a simplified assumption
+                pred_value = predictions.iloc[0, -1]
+                probabilities = [0.0, 0.0, 0.0]
+                probabilities[int(pred_value)] = 1.0
+                
+        # If model is a regular sklearn or other model with predict and predict_proba
+        except:
+            pred_value = model.predict(input_data)[0]
+            probabilities = model.predict_proba(input_data)[0]
+            
+        return int(pred_value), probabilities
+    except Exception as e:
+        st.error(f"Error making prediction: {e}")
+        return None, None
+
 # Predict page
 if page == "Predict":
     st.markdown('<h2 class="subheader">Enter Wheat Kernel Measurements</h2>', unsafe_allow_html=True)
@@ -163,83 +224,85 @@ if page == "Predict":
     if st.button("Classify Wheat Kernel", key="predict_button"):
         if model is not None:
             try:
-                prediction = model.predict(input_df)[0]
-                probabilities = model.predict_proba(input_df)[0]
+                prediction, probabilities = make_prediction(model, input_df)
                 
-                wheat_types = ["Kama", "Rosa", "Canadian"]
-                pred_type = wheat_types[prediction]
-                
-                # Show prediction with custom styling
-                st.markdown(f"""
-                <div class="prediction-box">
-                    <h2>Prediction Result</h2>
-                    <h3>This wheat kernel is classified as: 
-                        <span style="color: #2980b9; font-weight: bold;">{pred_type} (Type {prediction+1})</span>
-                    </h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Show probabilities as a horizontal bar chart using Streamlit
-                st.markdown("### Prediction Probabilities")
-                for i, wheat_type in enumerate(wheat_types):
-                    prob = probabilities[i]
-                    # Custom color for each wheat type
-                    color = "#88d8b0" if wheat_type == "Kama" else "#ff9966" if wheat_type == "Rosa" else "#6699cc"
-                    st.markdown(f"**{wheat_type}**: {prob:.4f}")
-                    st.progress(float(prob))
-                
-                # Show wheat type description
-                st.markdown(f"""
-                <div class="wheat-info">
-                    <h3>About {pred_type} Wheat:</h3>
-                    {wheat_descriptions[prediction]}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Simple visualizations using Streamlit components
-                st.markdown("### Input Data Visualization")
-                
-                # Display the input values in a table for reference
-                st.markdown("#### Your Input Values:")
-                st.write(input_df)
-                
-                # Create a simple data comparison
-                st.markdown("#### How Your Sample Compares:")
-                comparison_data = {
-                    "Feature": ["Length", "Width", "Compactness"],
-                    "Your Sample": [feature_values["length"], feature_values["width"], feature_values["compactness"]],
-                    "Kama Typical": [5.6, 3.3, 0.88],
-                    "Rosa Typical": [6.3, 3.8, 0.89],
-                    "Canadian Typical": [5.2, 2.9, 0.84]
-                }
-                
-                comparison_df = pd.DataFrame(comparison_data)
-                st.table(comparison_df)
-                
-                # Create a simple data representation of how close the sample is to each type
-                st.markdown("#### Similarity to Each Wheat Type")
-                st.write("The probabilities indicate how closely your sample matches each wheat type.")
-                
-                # Red to green scale color coding
-                wheat_colors = {"Kama": "#88d8b0", "Rosa": "#ff9966", "Canadian": "#6699cc"}
-                
-                # Show colored indicators for closest match
-                cols = st.columns(3)
-                for i, (wheat, color) in enumerate(wheat_colors.items()):
-                    with cols[i]:
-                        prob = probabilities[wheat_types.index(wheat)]
-                        st.markdown(f"""
-                        <div style="background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;">
-                            <h4>{wheat}</h4>
-                            <h3>{prob:.4f}</h3>
-                            <p>{'✅ MATCH' if wheat == pred_type else ''}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                if prediction is not None:
+                    wheat_types = ["Kama", "Rosa", "Canadian"]
+                    pred_type = wheat_types[prediction]
+                    
+                    # Show prediction with custom styling
+                    st.markdown(f"""
+                    <div class="prediction-box">
+                        <h2>Prediction Result</h2>
+                        <h3>This wheat kernel is classified as: 
+                            <span style="color: #2980b9; font-weight: bold;">{pred_type} (Type {prediction+1})</span>
+                        </h3>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Show probabilities as a horizontal bar chart using Streamlit
+                    if probabilities is not None:
+                        st.markdown("### Prediction Probabilities")
+                        for i, wheat_type in enumerate(wheat_types):
+                            if i < len(probabilities):
+                                prob = probabilities[i]
+                                # Custom color for each wheat type
+                                color = "#88d8b0" if wheat_type == "Kama" else "#ff9966" if wheat_type == "Rosa" else "#6699cc"
+                                st.markdown(f"**{wheat_type}**: {prob:.4f}")
+                                st.progress(float(prob))
+                    
+                    # Show wheat type description
+                    st.markdown(f"""
+                    <div class="wheat-info">
+                        <h3>About {pred_type} Wheat:</h3>
+                        {wheat_descriptions[prediction]}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Simple visualizations using Streamlit components
+                    st.markdown("### Input Data Visualization")
+                    
+                    # Display the input values in a table for reference
+                    st.markdown("#### Your Input Values:")
+                    st.write(input_df)
+                    
+                    # Create a simple data comparison
+                    st.markdown("#### How Your Sample Compares:")
+                    comparison_data = {
+                        "Feature": ["Length", "Width", "Compactness"],
+                        "Your Sample": [feature_values["length"], feature_values["width"], feature_values["compactness"]],
+                        "Kama Typical": [5.6, 3.3, 0.88],
+                        "Rosa Typical": [6.3, 3.8, 0.89],
+                        "Canadian Typical": [5.2, 2.9, 0.84]
+                    }
+                    
+                    comparison_df = pd.DataFrame(comparison_data)
+                    st.table(comparison_df)
+                    
+                    # Create a simple data representation of how close the sample is to each type
+                    st.markdown("#### Similarity to Each Wheat Type")
+                    
+                    # Red to green scale color coding
+                    wheat_colors = {"Kama": "#88d8b0", "Rosa": "#ff9966", "Canadian": "#6699cc"}
+                    
+                    # Show colored indicators for closest match
+                    cols = st.columns(3)
+                    for i, (wheat, color) in enumerate(wheat_colors.items()):
+                        with cols[i]:
+                            prob_val = probabilities[i] if i < len(probabilities) else 0
+                            st.markdown(f"""
+                            <div style="background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;">
+                                <h4>{wheat}</h4>
+                                <h3>{prob_val:.4f}</h3>
+                                <p>{'✅ MATCH' if wheat == pred_type else ''}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
                 
             except Exception as e:
                 st.error(f"Prediction error: {e}")
+                st.info("Please make sure your model is compatible with the input data format.")
         else:
-            st.error("Model not loaded correctly. Please check the model file.")
+            st.error("Model not loaded correctly. Please check the model file and make sure PyCaret is installed.")
 
 # Dataset Info page
 elif page == "Dataset Info":
