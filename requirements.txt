@@ -1,4 +1,2 @@
 streamlit
-pycaret==3.3.2
-pandas
-numpy
+pycaret
