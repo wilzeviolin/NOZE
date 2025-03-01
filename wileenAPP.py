@@ -8,30 +8,25 @@ from flask import Flask, request, jsonify, render_template
 app = Flask(__name__, template_folder='templates')
 
 # Load the trained model
-def load_model(model_path=None):
+def load_model(model_path):
     try:
-        if model_path is None:
-            # Set default path if none is provided
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_path = os.path.join(project_root, 'artifacts', 'seed_pipeline.pkl')
-        
         if os.path.exists(model_path):
             with open(model_path, 'rb') as model_file:
                 return pickle.load(model_file)
-        else:
-            print(f"Model file not found at: {model_path}")
-            return None
     except Exception as e:
         print(f"Error loading model: {e}")
         return None
 
     
-@hydra.main(config_path="config", config_name="wheat.yaml")
-def check_model(config: DictConfig):
-    global model
+@hydra.main(config_path="conf", config_name="config.yaml")
+def check_model(config):
+    model_path = config.model.path  # Retrieve model path from config
+    model = load_model(model_path)  # Pass the model path to load_model function
     if model is None:
-        model = load_model(config.model.path)
-
+        print("Model not loaded")
+    else:
+        print("Model loaded successfully")
+        
 # Initialize model to None initially
 model = None
 
