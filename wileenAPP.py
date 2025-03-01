@@ -10,11 +10,13 @@ app = Flask(__name__, template_folder='templates')
 # Load the trained model
 def load_model(model_path):
     try:
+        print(f"Attempting to load model from: {model_path}")  # Debug print
         if os.path.exists(model_path):
+            print(f"Model file found at: {model_path}")  # Debug print
             with open(model_path, 'rb') as model_file:
                 return pickle.load(model_file)
         else:
-            print(f"Model file not found at: {model_path}")
+            print(f"Model file not found at: {model_path}")  # Debug print
     except Exception as e:
         print(f"Error loading model: {e}")
     return None
@@ -27,7 +29,7 @@ def initialize_model(config):
     global model
     if model is None:
         model_path = config.model.path  # Retrieve model path from config
-        print(f"Attempting to load model from: {model_path}")  # Debug print for model path
+        print(f"Config model path: {model_path}")  # Debug print for config path
         model = load_model(model_path)  # Pass the model path to load_model function
         if model is None:
             print("Model not loaded")
@@ -37,6 +39,7 @@ def initialize_model(config):
 # Initialize the model using Hydra config
 @hydra.main(config_path="config", config_name="wheat.yaml")
 def setup(config: DictConfig):
+    print("Hydra config loaded successfully.")
     initialize_model(config)  # Initialize model once
 
 # Run the Hydra initialization
@@ -47,7 +50,7 @@ setup()  # Call this once during app startup
 def before_request():
     global model
     if model is None:
-        print("Model is not loaded.")
+        print("Model is not loaded.")  # Debug print
         return jsonify({"error": "Model not loaded"}), 500  # Return 500 if model isn't loaded
 
 @app.route('/', methods=['GET'])
