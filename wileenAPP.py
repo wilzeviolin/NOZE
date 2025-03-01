@@ -17,25 +17,35 @@ def load_model(model_path):
         print(f"Error loading model: {e}")
         return None
 
-    
-@hydra.main(config_path="config", config_name="wheat.yaml")
-def check_model(config):
-    model_path = config.model.path  # Retrieve model path from config
-    model = load_model(model_path)  # Pass the model path to load_model function
-    if model is None:
-        print("Model not loaded")
-    else:
-        print("Model loaded successfully")
-        
-# Initialize model to None initially
+# Global model variable
 model = None
+
+# Function to load the model from the config file path
+def initialize_model(config):
+    global model
+    if model is None:
+        model_path = config.model.path  # Retrieve model path from config
+        model = load_model(model_path)  # Pass the model path to load_model function
+        if model is None:
+            print("Model not loaded")
+        else:
+            print("Model loaded successfully")
+
+# Initialize the model using Hydra config
+@hydra.main(config_path="config", config_name="wheat.yaml")
+def setup(config: DictConfig):
+    initialize_model(config)  # Initialize model once
+
+# Run the Hydra initialization
+setup()  # Call this once during app startup
 
 # Check the model before processing requests
 @app.before_request
 def before_request():
     global model
     if model is None:
-        check_model()
+        print("Model is not loaded.")
+        return jsonify({"error": "Model not loaded"}), 500  # Return 500 if model isn't loaded
 
 @app.route('/', methods=['GET'])
 def home_page():
@@ -43,10 +53,12 @@ def home_page():
 
 @app.route('/process', methods=['POST'])
 def process_form():
+    global model
     if model is None:
         return jsonify({"error": "Model not loaded"})
 
     try:
+        # Retrieve features from the form
         area = float(request.form['area'])
         perimeter = float(request.form['perimeter'])
         compactness = float(request.form['compactness'])
@@ -56,6 +68,7 @@ def process_form():
         groove = float(request.form['groove'])
         length_width_ratio = length / width if width != 0 else 0
 
+        # Prepare the features for prediction
         features_df = pd.DataFrame({
             'Area': [area],
             'Perimeter': [perimeter],
@@ -67,8 +80,10 @@ def process_form():
             'Length_Width_Ratio': [length_width_ratio]
         })
 
+        # Make prediction
         prediction = int(model.predict(features_df)[0])
         return jsonify({"prediction": prediction})
+
     except Exception as e:
         return jsonify({"error": str(e)})
 
