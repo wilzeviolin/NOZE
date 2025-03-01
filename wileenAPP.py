@@ -10,13 +10,17 @@ app = Flask(__name__, template_folder='templates')
 # Load the model using the configuration path passed by Hydra
 def load_model(model_path):
     try:
-        if os.path.exists(model_path):
-            with open(model_path, 'rb') as model_file:
+        absolute_model_path = os.path.abspath(model_path)
+        print(f"Attempting to load model from: {absolute_model_path}")  # Debugging line
+        if os.path.exists(absolute_model_path):
+            with open(absolute_model_path, 'rb') as model_file:
                 return pickle.load(model_file)
+        else:
+            print(f"Model file not found at: {absolute_model_path}")  # Debugging line
     except Exception as e:
         print(f"Error loading model: {e}")
-        return None
-
+    return None
+    
 @hydra.main(config_path="config", config_name="wheat.yaml")
 def check_model(config: DictConfig):
     global model
