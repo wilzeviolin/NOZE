@@ -4,6 +4,5 @@ scikit-learn
 requests
 pandas
 hydra-core
-pickle5
 omegaconf
 pycaret
