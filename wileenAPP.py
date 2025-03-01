@@ -59,7 +59,7 @@ def check_model():
     if model is None:
         model = load_model(config.model.path)
 
-@hydra.main(config_path="config", config_name="config.yaml")
+@hydra.main(config_path="config", config_name="wheat.yaml")
 def main(cfg: DictConfig):
     global model
     # Load the model using the path from the config
