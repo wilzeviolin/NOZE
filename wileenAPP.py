@@ -1,14 +1,13 @@
+import hydra
+from omegaconf import DictConfig, OmegaConf
 import os
 import pickle
 import pandas as pd
 from flask import Flask, request, jsonify, render_template
-import hydra
-from omegaconf import DictConfig
 
-# Initialize Flask app
 app = Flask(__name__, template_folder='templates')
 
-# Load the trained model
+# Load the model using the configuration path passed by Hydra
 def load_model(model_path):
     try:
         if os.path.exists(model_path):
@@ -17,6 +16,22 @@ def load_model(model_path):
     except Exception as e:
         print(f"Error loading model: {e}")
         return None
+
+@hydra.main(config_path="config", config_name="wheat.yaml")
+def check_model(config: DictConfig):
+    global model
+    if model is None:
+        model = load_model(config.model.path)
+
+# Initialize model to None initially
+model = None
+
+# Check the model before processing requests
+@app.before_request
+def before_request():
+    global model
+    if model is None:
+        check_model()
 
 @app.route('/', methods=['GET'])
 def home_page():
@@ -53,22 +68,7 @@ def process_form():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-@app.before_request
-def check_model():
-    global model
-    if model is None:
-        model = load_model(config.model.path)
-
-@hydra.main(config_path="config", config_name="wheat.yaml")
-def main(cfg: DictConfig):
-    global model
-    # Load the model using the path from the config
-    model = load_model(cfg.model.path)
-
-    # Start Flask app
-    port = cfg.server.port
-    print(f"Starting Flask app on port {port}")
-    app.run(host=cfg.server.host, port=port, debug=cfg.server.debug)
-
 if __name__ == '__main__':
-    main()
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Starting Flask app on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
