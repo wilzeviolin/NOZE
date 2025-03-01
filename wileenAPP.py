@@ -18,7 +18,7 @@ def load_model(model_path):
         return None
 
     
-@hydra.main(config_path="conf", config_name="config.yaml")
+@hydra.main(config_path="config", config_name="wheat.yaml")
 def check_model(config):
     model_path = config.model.path  # Retrieve model path from config
     model = load_model(model_path)  # Pass the model path to load_model function
