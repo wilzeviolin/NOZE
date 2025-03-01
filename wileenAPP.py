@@ -8,10 +8,12 @@ from flask import Flask, request, jsonify, render_template
 app = Flask(__name__, template_folder='templates')
 
 # Load the trained model
-def load_model():
+def load_model(model_path=None):
     try:
-        # Accessing the model path from the Hydra config object
-        model_path = config.model.path
+        if model_path is None:
+            # Set default path if none is provided
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_path = os.path.join(project_root, 'artifacts', 'seed_pipeline.pkl')
         
         if os.path.exists(model_path):
             with open(model_path, 'rb') as model_file:
