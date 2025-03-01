@@ -7,19 +7,27 @@ from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__, template_folder='templates')
 
-# Load the model using the configuration path passed by Hydra
-def load_model(model_path):
+# Load the trained model
+def load_model():
     try:
-        absolute_model_path = os.path.abspath(model_path)
-        print(f"Attempting to load model from: {absolute_model_path}")  # Debugging line
-        if os.path.exists(absolute_model_path):
-            with open(absolute_model_path, 'rb') as model_file:
+        # Check if running locally or in production (you can use an environment variable for this)
+        if os.getenv('FLASK_ENV') == 'development':  # Check if it's local (development)
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_path = os.path.join(project_root, 'artifacts', 'seed_pipeline.pkl')
+        else:  # For production, check if the model exists in the absolute path (for your deployment)
+            model_path = "/opt/render/project/src/outputs/2025-03-01/12-02-51/artifacts/seed_pipeline.pkl"  # Adjust path as needed
+
+        print(f"Attempting to load model from: {model_path}")
+
+        if os.path.exists(model_path):
+            with open(model_path, 'rb') as model_file:
                 return pickle.load(model_file)
         else:
-            print(f"Model file not found at: {absolute_model_path}")  # Debugging line
+            print(f"Model file not found at: {model_path}")
+            return None
     except Exception as e:
         print(f"Error loading model: {e}")
-    return None
+        return None
     
 @hydra.main(config_path="config", config_name="wheat.yaml")
 def check_model(config: DictConfig):
