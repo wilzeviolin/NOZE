@@ -11,25 +11,36 @@ model = None
 # Function to load the model from a file path
 def load_model(model_path):
     try:
+        # Try direct path
         print(f"Attempting to load model from: {model_path}")
         if os.path.exists(model_path):
             print(f"Model file found at: {model_path}")
             with open(model_path, 'rb') as model_file:
                 return pickle.load(model_file)
-        else:
-            print(f"Model file not found at: {model_path}")
-            # Try to resolve relative path
-            current_dir = os.getcwd()
-            absolute_path = os.path.join(current_dir, model_path)
-            print(f"Trying absolute path: {absolute_path}")
-            if os.path.exists(absolute_path):
-                with open(absolute_path, 'rb') as model_file:
-                    return pickle.load(model_file)
-            else:
-                print(f"Model not found at absolute path either")
+        
+        # Try absolute path from project root
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the script
+        absolute_path = os.path.join(base_dir, model_path)
+        print(f"Trying absolute path: {absolute_path}")
+        if os.path.exists(absolute_path):
+            print(f"Model file found at: {absolute_path}")
+            with open(absolute_path, 'rb') as model_file:
+                return pickle.load(model_file)
+                
+        # Try with hydra output directory handling
+        hydra_output_dir = os.path.join(os.getcwd(), "..", "..")  # Navigate up from Hydra's output dir
+        hydra_path = os.path.join(hydra_output_dir, model_path)
+        print(f"Trying hydra-adjusted path: {hydra_path}")
+        if os.path.exists(hydra_path):
+            print(f"Model file found at: {hydra_path}")
+            with open(hydra_path, 'rb') as model_file:
+                return pickle.load(model_file)
+                
+        print("Model file not found in any attempted location")
+        return None
     except Exception as e:
         print(f"Error loading model: {e}")
-    return None
+        return None
 
 # Create Flask app
 app = Flask(__name__, template_folder='templates')
