@@ -13,9 +13,11 @@ def load_model(model_path):
         if os.path.exists(model_path):
             with open(model_path, 'rb') as model_file:
                 return pickle.load(model_file)
+        else:
+            print(f"Model file not found at: {model_path}")
     except Exception as e:
         print(f"Error loading model: {e}")
-        return None
+    return None
 
 # Global model variable
 model = None
@@ -25,6 +27,7 @@ def initialize_model(config):
     global model
     if model is None:
         model_path = config.model.path  # Retrieve model path from config
+        print(f"Attempting to load model from: {model_path}")  # Debug print for model path
         model = load_model(model_path)  # Pass the model path to load_model function
         if model is None:
             print("Model not loaded")
